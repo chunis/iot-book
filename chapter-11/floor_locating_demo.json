@@ -1,0 +1,403 @@
+[
+    {
+        "id": "6256a164.143088",
+        "type": "tab",
+        "label": "Floor Locating Demo",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "eea55317.3d9cc8",
+        "type": "function",
+        "z": "6256a164.143088",
+        "name": "Prepare Wi-Fi request",
+        "func": "msg.url = 'https://apis.map.qq.com/ws/location/v1/network';\nmsg.method = \"POST\";\nmsg.headers = {\n    'Content-Type': 'application/json',\n};\n\nif(msg.payload.node_type == 0)  // reference node\n    return [msg, null];\n\nif(msg.payload.node_type != 1) {\n    node.error(\"Error! node_type != 1\");\n    return [null, null];\n}\n\n\n\n// re-assemble payload 'c56409804c76c3ac74d6cb9c74f7c1045fb9e67d60ca62c0a25b465caf603a7cac81de'\n\nlet idx = 2;  // the beginning byte is for payload_type (wifi tag)\nlet wifiinfo = [];\n\nwhile(idx < msg.payload.app_data.length){\n  let rssi = parseInt(msg.payload.app_data.slice(idx, idx+2), 16) - 256;\n  let mac = msg.payload.app_data.slice(idx+2, idx+14);\n  idx += 14;\n\n  let wifi = {\n    \"mac\": mac,\n    \"rssi\": rssi\n  }\n\n  wifiinfo.push(wifi);\n}\n\nlet query_msg = {\n    \"key\": \"RVYBZ-BFNWU-JALV7-2CTQC-ASD6E-E4F5W\",\n    \"device_id\": msg.payload.name,\n    \"wifiinfo\": wifiinfo\n}\nmsg.node_info = msg.payload;\nmsg.payload = query_msg;\n\nreturn [null, msg];",
+        "outputs": 2,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 300,
+        "y": 480,
+        "wires": [
+            [
+                "221c260e212e3ce1"
+            ],
+            [
+                "21660d8c.a6e4b2"
+            ]
+        ]
+    },
+    {
+        "id": "21660d8c.a6e4b2",
+        "type": "http request",
+        "z": "6256a164.143088",
+        "name": "",
+        "method": "use",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 530,
+        "y": 500,
+        "wires": [
+            [
+                "e7f2cac9.0d7e3"
+            ]
+        ]
+    },
+    {
+        "id": "e7f2cac9.0d7e3",
+        "type": "json",
+        "z": "6256a164.143088",
+        "name": "",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 250,
+        "y": 560,
+        "wires": [
+            [
+                "9bdf37e07c31b1ca"
+            ]
+        ]
+    },
+    {
+        "id": "a38f8f63.ab8088",
+        "type": "function",
+        "z": "6256a164.143088",
+        "name": "From NS",
+        "func": "var payload_in;                                                                       \n\ntry {\n  payload_in = (JSON.parse(msg.payload));                                             \n} catch(err) {\n  node.error(\"Unable to parse input as JSON string\", msg);                            \n  return [null, null];                                                                \n}                                                                                     \n\nlet port = parseInt(payload_in.fPort, 10);                                                \n\nif(port != 66) \n  return [msg, null];                                                                 \n\nlet deveui = payload_in.deviceInfo.devEui.toUpperCase();\nlet data = Buffer.from(payload_in.data, 'base64'); \nmsg.data = data;\ndata = data.toString('hex');\n//console.log(payload.toString('hex'))                                                \n//*\nlet node_type = parseInt(data.slice(0, 2), 16); \nlet ht_l = parseInt(data.slice(2, 4), 16);                                            \nlet ht_h = parseInt(data.slice(4, 6), 16);       \n//*/\n/*\nlet node_type = data[0];\nlet ht_l = data[1];                                            \nlet ht_h = data[2];\n*/\nlet height = ht_h << 8 | ht_l;\n\nif(height > 32767)\n    height -= 65536;\nlet baro_pld_len = 6;  // 3 bytes, and 1 byte = 2 hex values\nlet app_data = data.slice(baro_pld_len, data.length);                  \n\nlet info = {\n    \"name\": deveui,\n    \"node_type\": node_type,                                                           \n    \"height\": height,\n    \"app_data\": app_data                                                              \n}\nmsg.old_payload = msg.payload;                                                        \nmsg.payload = info;                                                                   \n\nreturn [null, msg];                                                                   \n",
+        "outputs": 2,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 440,
+        "y": 360,
+        "wires": [
+            [
+                "ccf5a214.4698b"
+            ],
+            [
+                "db9a25f2.712a88"
+            ]
+        ]
+    },
+    {
+        "id": "3751dbe8.3bdfa4",
+        "type": "inject",
+        "z": "6256a164.143088",
+        "name": "Reference database",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "",
+        "topic": "",
+        "payload": "{\"0016C001F000523D\":1,\"0016C001F0004BD2\":5}",
+        "payloadType": "json",
+        "x": 284,
+        "y": 184,
+        "wires": [
+            [
+                "bef78a08.8382c8",
+                "9436fb11.3c594"
+            ]
+        ]
+    },
+    {
+        "id": "bef78a08.8382c8",
+        "type": "function",
+        "z": "6256a164.143088",
+        "name": "init_ref_from_db",
+        "func": "let ref = {}\nlet cal_ref = null\n\nfor(const [k, v] of Object.entries(msg.payload)){\n  ref[k] = {\n    'base_off': null,\n    'ht': [],  // [time, height]\n    'cal_base': false  // calibrate base; only node at the 1st floor is true\n  }\n\n  if(v == 1){\n    ref[k]['cal_base'] = true\n    cal_ref = k\n    console.log('cali base: %s', k)\n  }\n}\n\nglobal.set('ref', ref)\nglobal.set('cal_ref', cal_ref)\nmsg.payload = ref\n\nreturn msg",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 546,
+        "y": 144.00000762939453,
+        "wires": [
+            [
+                "c8f5f330.4ef0f8"
+            ]
+        ]
+    },
+    {
+        "id": "9436fb11.3c594",
+        "type": "function",
+        "z": "6256a164.143088",
+        "name": "reverse_ref_db",
+        "func": "let floor_db = {}  // reverse ref_db, use floor number as key, node name as value\n\nfor(const [k, v] of Object.entries(msg.payload)){\n  floor_db[v] = k\n}\n\nglobal.set('floor_db', floor_db)\nmsg.payload = floor_db\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 546,
+        "y": 224.00000762939453,
+        "wires": [
+            [
+                "bc3fb0e8.740a1"
+            ]
+        ]
+    },
+    {
+        "id": "c8f5f330.4ef0f8",
+        "type": "debug",
+        "z": "6256a164.143088",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 739,
+        "y": 143.00000762939453,
+        "wires": []
+    },
+    {
+        "id": "bc3fb0e8.740a1",
+        "type": "debug",
+        "z": "6256a164.143088",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 739,
+        "y": 223.00000762939453,
+        "wires": []
+    },
+    {
+        "id": "db9a25f2.712a88",
+        "type": "function",
+        "z": "6256a164.143088",
+        "name": "calculate_floor_number",
+        "func": "\nconst digital_multi = 10  // shift left one digital, means all height values are 10 times bigger\nconst above_from_ground = 2; // 0; // 1 * digital_multi\n\nlet ref = global.get('ref') || {};\nlet floor_db = global.get('floor_db') || {};\nlet cal_ref = global.get('cal_ref') || null;\nlet dbg_msg = \"\";\n\n\n// fl/fh: floor low/high; hl/hh: height low/hight; ht: node height\nfunction calc_which_floor(fl, fh, hl, hh, ht) {\n    console.log('fl =', fl, 'fh =', fh, 'hl =', hl, 'hh =', hh, 'ht =', ht, 'above_from_ground =', above_from_ground)\n    dbg_msg += 'fl = ' + fl + ', fh = ' + fh + ', hl = ' + hl + ', hh = ' + hh\n    dbg_msg += ', ht =' + ht + ', above_from_ground =' + above_from_ground + '\\n'\n    \n    if(ht == hl){\n        console.log(\"same height as floor %s\", fl)\n        dbg_msg += \"same height as floor \" + fl + '\\n'\n        msg.payload.which_floor_detail = fl\n        return fl\n    } else if (ht == hh){\n        console.log(\"same height as floor %s\", fh)\n        dbg_msg += \"same height as floor \" + fh + '\\n'\n        msg.payload.which_floor_detail = fh\n        return fh\n    }\n\n    let nf = fh - fl\n    let one_flr_ht = (parseFloat(hh - hl) / nf).toFixed(1)\n    console.log('one_flr_ht = %s', one_flr_ht)\n    dbg_msg += 'one_flr_ht = ' + one_flr_ht + '\\n'\n    let node_flrs = parseFloat(ht - hl + above_from_ground) / parseFloat(one_flr_ht)\n    console.log('node_flrs = %s', node_flrs)\n    dbg_msg += 'node_flrs = ' + node_flrs + '\\n'\n\n    let flr_num_detail = parseFloat(node_flrs.toFixed(1)) + parseInt(fl)\n    if(parseInt(node_flrs) < 0){\n        flr_num_detail -= 2  // let's skip floor 0, and if node_flrs == -0.2, then it's in floor -1\n    }\n    msg.payload.which_floor_detail = flr_num_detail\n\n    let flr_num = parseInt(node_flrs) + parseInt(fl)\n    if(parseInt(node_flrs) < 0){\n        flr_num -= 2  // let's skip floor 0, and if node_flrs == -0.2, then it's in floor -1\n    }\n    return flr_num\n}\n\n\nfunction find_bottom_top(ht) {\n    let floors = []\n    let all_floors = Object.keys(floor_db)\n    all_floors.sort()\n    let ref_ht_list = []\n    for (let x of all_floors){\n        if(ref[ floor_db[x] ]['ht'] != false){\n            console.log(\"x = \", x, 'floor_db[x]', floor_db[x], 'ref =', ref[ floor_db[x] ]['ht'])\n            floors.push(x)\n            ref_ht_list.push(ref[ floor_db[x] ]['ht'][1] - ref[ floor_db[x] ]['base_off'])\n        }\n    }\n    let frl = floors.length\n    let refl = ref_ht_list.length\n\n    let which_floor\n    if(ht < ref_ht_list[0]){\n        console.log(\"below floor %s: %s < %s\", floors[0], ht, ref_ht_list[0])\n        dbg_msg += \"below floor \" + floors[0] + \": \" + ht + \" < \" + ref_ht_list[0] + \"\\n\"\n        which_floor = calc_which_floor(floors[0], floors[1], ref_ht_list[0], ref_ht_list[1], ht)\n    } else if(ht > ref_ht_list[refl-1]){\n        console.log(\"above floor [%s]: %s < %s\", floors[frl-1], ht, ref_ht_list[refl-1])\n        dbg_msg += \"above floor [\" + floors[frl-1] + \"]: \" + ht + \" < \" + ref_ht_list[refl-1] + \"\\n\"\n        which_floor = calc_which_floor(floors[frl-2], floors[frl-1], ref_ht_list[refl-2], ref_ht_list[refl-1], ht)\n    } else {\n        let i = 1\n        while(ht >= ref_ht_list[i]){\n            i += 1\n        }\n        //l, h = floor_db[floors[i-1]], floor_db[floors[i]]\n        let l = floors[i-1]\n        let h = floors[i]\n        console.log(\"between floors [%s, %s]: %s < %s < %s\", l, h, ref_ht_list[i-1], ht, ref_ht_list[i])\n        dbg_msg += \"between floors [\" + l + \", \" + h + \"]: \" + ref_ht_list[i-1] + \" < \" + ht + \" < \" + ref_ht_list[i] + \"\\n\"\n        which_floor = calc_which_floor(l, h, ref_ht_list[i-1], ref_ht_list[i], ht)\n    }\n\n    console.log(\"node in floor = %s\", which_floor)\n    dbg_msg += \"node in floor = \" + which_floor + \"\\n\"\n    msg.payload.which_floor = which_floor\n}\n\n\nfunction process_mobile_node(name, ht) {\n  let node = global.get('node') || {}\n  if (!(name in node)) {\n    console.log('name not in node')\n    dbg_msg += \"first data from node for calibration\"\n    if(cal_ref in ref && ref[cal_ref]['base_off0'] != null){\n      let tmp_off = ht - ref[cal_ref]['base_off0']\n      console.log('node (%s) has base_off = %s', name, tmp_off)\n      dbg_msg += 'node (' + name + ') has base_off = ' + tmp_off + '\\n'\n      node[name] = { 'base_off': tmp_off }\n      global.set('node', node)\n    }\n  } else {  // try to calculate floor number\n    console.log('calculate floor with %s', ht)\n    dbg_msg += 'calculate floor with ' + ht + '\\n'\n    let node_ht = ht - node[name]['base_off']\n    find_bottom_top(node_ht)\n  }\n}\n\n\nfunction process_payload(pld) {\n    //let obj = JSON.parse(pld)\n    let name = pld['name']\n    let ht = pld['height']\n    if(name in ref){\n        if(ref[name]['base_off'] == null){\n            if(name == cal_ref){\n                ref[name]['base_off'] = 0\n                ref[name]['base_off0'] = ht\n                ref[name]['ht'] = [new Date().getTime() / 1000, ht]\n            } else if(ref[cal_ref]['base_off0']){\n                ref[name]['base_off'] = ht - ref[cal_ref]['base_off0']\n                ref[name]['ht'] = [new Date().getTime() / 1000, ht]\n            } else {\n                ref[name]['ht'] = [new Date().getTime() / 1000, ht]\n                console.log(\"warn: cal_ref.base_off not available; ref[%s]['base_off'] doesn't update\", name)\n                dbg_msg += \"warn: cal_ref.base_off not available; ref[\" + name + \"]['base_off'] doesn't update\" + '\\n'\n            }\n        } else {\n            ref[name]['ht'] = [new Date().getTime() / 1000, ht]\n        }\n        console.log(ref)\n        dbg_msg += JSON.stringify(ref) + '\\n'\n    } else {\n        console.log('\\ngot node, name = %s', name)\n        dbg_msg += \"got data from node '\" + name + \"'\\n\"\n        process_mobile_node(name, ht)\n    }\n}\n\n\nprocess_payload(msg.payload)\n\nmsg.dbg_msg = dbg_msg;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 380,
+        "wires": [
+            [
+                "eea55317.3d9cc8"
+            ]
+        ]
+    },
+    {
+        "id": "ccf5a214.4698b",
+        "type": "debug",
+        "z": "6256a164.143088",
+        "name": "Data from port != 66",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 660,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "6dd276a8.13abf8",
+        "type": "websocket out",
+        "z": "6256a164.143088",
+        "name": "",
+        "server": "eec4705.30ae09",
+        "client": "",
+        "x": 610,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "64aaa2bc.70475c",
+        "type": "comment",
+        "z": "6256a164.143088",
+        "name": "________________      Network Server Connection      ________________",
+        "info": "",
+        "x": 416,
+        "y": 289,
+        "wires": []
+    },
+    {
+        "id": "4678f87f.46806",
+        "type": "comment",
+        "z": "6256a164.143088",
+        "name": "_______________________      CONFIG      _______________________",
+        "info": "",
+        "x": 408,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "ad694347e71512d5",
+        "type": "mqtt in",
+        "z": "6256a164.143088",
+        "name": "MQTT Event Up",
+        "topic": "application/e9d83122-530b-42d4-9132-2194ccd949b2/device/+/event/up",
+        "qos": "2",
+        "datatype": "auto",
+        "broker": "4310cfe3735eeaa2",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 241.1666717529297,
+        "y": 361.16668701171875,
+        "wires": [
+            [
+                "a38f8f63.ab8088"
+            ]
+        ]
+    },
+    {
+        "id": "9bdf37e07c31b1ca",
+        "type": "function",
+        "z": "6256a164.143088",
+        "name": "waypoints",
+        "func": "if (msg.payload.result === null) return;\nif (msg.payload.result.location === null) return;\n\nconst devEui = msg.node_info.name.match( /.{1,2}/g ).join( '-' );\ntry {\n    const lat = msg.payload.result.location.latitude;\n    const lon = msg.payload.result.location.longitude;\n\n    let which_floor = \"(unknown)\"\n    if(msg.node_info.which_floor)\n        which_floor = msg.node_info.which_floor + \"(detail: \" + msg.node_info.which_floor_detail + \")\";\n\n    msg.payload = {\n        \"name\": devEui,\n        \"lat\": lat,\n        \"lon\": lon,\n        \"time\": `${new Date(Date.now())}`,\n        \"which_floor\": which_floor,\n        \"icon\": \"fa-wifi\",\n        \"ttl\": 86400, // 24 hours\n        \"color\":\"#008000\",\n        \"command\": {\n            \"lat\": lat,\n            \"lon\": lon,\n            \"layer\": \"OSM\"\n        }\n    }\n    return msg;\n} catch(err) {\n    return null;\n}",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 560,
+        "wires": [
+            [
+                "6dd276a8.13abf8",
+                "aa4758112d639b83"
+            ]
+        ]
+    },
+    {
+        "id": "221c260e212e3ce1",
+        "type": "debug",
+        "z": "6256a164.143088",
+        "name": "Reference info",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 540,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "b62e34da23a86180",
+        "type": "worldmap",
+        "z": "6256a164.143088",
+        "name": "",
+        "lat": "",
+        "lon": "",
+        "zoom": "",
+        "layer": "EsriC",
+        "cluster": "",
+        "maxage": "",
+        "usermenu": "show",
+        "layers": "show",
+        "panit": "false",
+        "panlock": "false",
+        "zoomlock": "false",
+        "hiderightclick": "false",
+        "coords": "none",
+        "showgrid": "false",
+        "showruler": "false",
+        "allowFileDrop": "false",
+        "path": "/worldmap",
+        "overlist": "DR,CO,RA,DN",
+        "maplist": "OSMG,OSMC,EsriC,EsriS,UKOS",
+        "mapname": "",
+        "mapurl": "",
+        "mapopt": "",
+        "mapwms": false,
+        "x": 740,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "aa4758112d639b83",
+        "type": "function",
+        "z": "6256a164.143088",
+        "name": "GCJ2 to GPS84",
+        "func": "// start of convert GCJ-2 to GPS-84\nconst pi = 3.14159265358979;\nconst a = 6378245.0;\nconst ee = 0.0066934216229659;\n\nfunction transformLat(x, y) {\n  var ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));\n  ret += (20.0 * Math.sin(6.0 * x * pi) + 20.0 * Math.sin(2.0 * x * pi)) * 2.0 / 3.0;\n  ret += (20.0 * Math.sin(y * pi) + 40.0 * Math.sin(y / 3.0 * pi)) * 2.0 / 3.0;\n  ret += (160.0 * Math.sin(y / 12.0 * pi) + 320 * Math.sin(y * pi / 30.0)) * 2.0 / 3.0;\n  return ret;\n}\n\nfunction transformLon(x, y) {\n  var ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));\n  ret += (20.0 * Math.sin(6.0 * x * pi) + 20.0 * Math.sin(2.0 * x * pi)) * 2.0 / 3.0;\n  ret += (20.0 * Math.sin(x * pi) + 40.0 * Math.sin(x / 3.0 * pi)) * 2.0 / 3.0;\n  ret += (150.0 * Math.sin(x / 12.0 * pi) + 300.0 * Math.sin(x / 30.0 * pi)) * 2.0 / 3.0;\n  return ret;\n}\n\nfunction transform(lat, lon) {\n  var dLat = transformLat(lon - 105.0, lat - 35.0);\n  var dLon = transformLon(lon - 105.0, lat - 35.0);\n  var radLat = lat / 180.0 * pi;\n  var magic = Math.sin(radLat);\n  magic = 1 - ee * magic * magic;\n  var sqrtMagic = Math.sqrt(magic);\n\n  dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * pi);\n  dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * pi);\n\n  var mgLat = lat + dLat;\n  var mgLon = lon + dLon;\n  return [mgLat, mgLon];\n}\n\nfunction gcj02_To_Gps84(lat, lon) {\n  var gps = transform(lat, lon);\n  var lontitude = lon * 2 - gps[1];\n  var latitude = lat * 2 - gps[0];\n  return [latitude.toFixed(6), lontitude.toFixed(6)];\n}\n// end of convert GCJ-2 to GPS-84\n\ntry {\n    const lat = msg.payload.lat;\n    const lon = msg.payload.lon;\n    let geo = gcj02_To_Gps84(lat, lon);\n\n    msg.payload = {\n        \"name\": msg.payload.name,\n        \"lat\": geo[0],\n        \"lon\": geo[1],\n        \"time\": `${new Date(Date.now())}`,\n        \"which_floor\": msg.payload.which_floor,\n        \"icon\": \"fa-wifi\",\n        \"ttl\": 86400, // 24 hours\n        \"color\":\"#008000\",\n        \"command\": {\n            \"lat\": geo[0],\n            \"lon\": geo[1],\n            \"layer\": \"OSM\"\n        }\n    }\n    return msg;\n} catch(err) {\n    return null;\n}\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 560,
+        "wires": [
+            [
+                "b62e34da23a86180"
+            ]
+        ]
+    },
+    {
+        "id": "eec4705.30ae09",
+        "type": "websocket-listener",
+        "path": "ws://localhost:3454",
+        "wholemsg": "false"
+    },
+    {
+        "id": "4310cfe3735eeaa2",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "localhost",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "sessionExpiry": ""
+    }
+]
